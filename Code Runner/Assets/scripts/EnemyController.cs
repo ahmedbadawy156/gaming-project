@@ -1,0 +1,37 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EnemyController : MonoBehaviour
+{
+public float maxSpeed = 2;
+public int damage = 1;
+
+//(If we need a variable to remain public to be accessed by other scripts, but we don't want it visible
+//in the Inspector window, we use HideInInspector)
+[HideInInspector]
+public SpriteRenderer sr;
+
+void Start()
+{
+sr = GetComponent<SpriteRenderer>();
+}
+//If true turn to false, if false turn to true
+public void Flip()
+{
+sr.flipX =!sr.flipX;
+}
+void OnTriggerEnter2D(Collider2D other)
+{
+if (other.tag == "Player")
+{
+FindObjectOfType<PlayerStats>().TakeDamage(damage);
+Flip();
+}
+else if (other.tag == "Wall")
+{
+Flip();
+
+}
+}
+}
