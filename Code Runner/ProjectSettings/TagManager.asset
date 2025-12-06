@@ -3,7 +3,8 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - enemy
   layers:
   - Default
   - TransparentFX
@@ -12,7 +13,7 @@ TagManager:
   - Water
   - UI
   - ground
-  - 
+  - bulle
   - 
   - 
   - 
@@ -49,4 +50,10 @@ TagManager:
     locked: 0
   - name: Bodzz
     uniqueID: 559173979
+    locked: 0
+  - name: enemy
+    uniqueID: 1990823557
+    locked: 0
+  - name: bulle
+    uniqueID: 3832338271
     locked: 0
