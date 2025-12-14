@@ -1,24 +1,36 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+
 public class LevelManager : MonoBehaviour
 {
-public GameObject CurrentCheckpoint; //so we can update the current checkpoint from within Unity
+    public Transform currentCheckpoint;
+    public GameObject gameOverPanel;
 
-public Transform player;
+    void Start()
+    {
+        // Always reset time on scene load
+        Time.timeScale = 1f;
 
-// Use this for initialization
-void Start () {
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+    }
 
-CurrentCheckpoint = null;
-}
-// Update is called once per frame
-void Update () {
-}
-public void RespawnPlayer()
-{
-FindObjectOfType<PlayerController>().transform.position = CurrentCheckpoint.transform.position;//Search for the asset/object called
-//Controller (your player's script code name whatever it is). Once you've found it, change its player game object's position
-//to be at thew last checkpoint the player passed through before s/he died
-}
+    public void RespawnPlayer()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+
+        if (player != null && currentCheckpoint != null)
+        {
+            player.transform.position = currentCheckpoint.position;
+        }
+    }
+
+    public void GameOver()
+    {
+        Debug.Log("SHOWING GAME OVER");
+
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(true);
+
+        Time.timeScale = 0f;
+    }
 }

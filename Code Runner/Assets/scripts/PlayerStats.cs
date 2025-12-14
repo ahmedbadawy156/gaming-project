@@ -1,77 +1,97 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections;
 
 public class PlayerStats : MonoBehaviour
 {
-    public int health = 3;
+    [Header("Health")]
+    public int maxHealth = 3;
+    public int health;
+
+    [Header("Lives")]
     public int lives = 3;
 
-    private float flickerTime = 0f;
-    public float flickerDuration = 0.1f;
+    [Header("Damage Immunity")]
+    public float immunityDuration = 1.2f;
+    private bool isImmune = false;
+
+    [Header("UI")]
+    public PlayerHeartsUI heartsUI;
+    public PlayerUI playerUI;
 
     private SpriteRenderer sr;
-
-    public bool isImmune = false;
-    private float immunityTime = 0f;
-    public float immunityDuration = 1.5f;
+    private Color originalColor;
+    private LevelManager levelManager;
 
     void Start()
     {
         sr = GetComponent<SpriteRenderer>();
+        originalColor = sr.color;
+
+        levelManager = FindObjectOfType<LevelManager>();
+
+        health = maxHealth;
+        UpdateUI();
     }
 
-    void Update()
+    public void TakeDamage(int damage, Vector2 hitSource)
     {
-        if (isImmune == true)
-        {
-            SpriteFlicker();
-            immunityTime = immunityTime + Time.deltaTime;
-            if (immunityTime >= immunityDuration)
-            {
-                isImmune = false;
-                sr.enabled = true;
-            }
-        }
-    }
+        if (isImmune) return;
 
-    public void TakeDamage(int damage)
-    {
-        if (isImmune == false)
-        {
-            health = health - damage;
-            if (health < 0)
-                health = 0;
-            if (lives > 0 && health == 0)
-            {
-                FindObjectOfType<LevelManager>().RespawnPlayer();
-                health = 3;
-                lives--;
-            }
-            else if (lives == 0 && health == 0)
-            {
-                Debug.Log("Gameover");
-                Destroy(this.gameObject);
-            }
+        health -= damage;
+        if (health < 0) health = 0;
 
-            Debug.Log("Player Health: " + health.ToString());
-            Debug.Log("Player Lives: " + lives.ToString());
+        UpdateUI();
+        StartCoroutine(Flicker());
+
+        if (health <= 0)
+        {
+            lives--;
+
+            if (lives > 0)
+            {
+                health = maxHealth;
+                UpdateUI();
+
+                if (levelManager != null)
+                    levelManager.RespawnPlayer();
+            }
+            else
+            {
+                Debug.Log("GAME OVER CALLED");
+
+                if (levelManager != null)
+                    levelManager.GameOver();
+            }
         }
 
         isImmune = true;
-        immunityTime = 0f;
+        Invoke(nameof(ResetImmunity), immunityDuration);
     }
 
-    void SpriteFlicker()
+    void ResetImmunity()
     {
-        if (flickerTime < flickerDuration)
+        isImmune = false;
+    }
+
+    IEnumerator Flicker()
+    {
+        float t = 0f;
+        while (t < immunityDuration)
         {
-            flickerTime = flickerTime + Time.deltaTime;
+            sr.color = Color.red;
+            yield return new WaitForSeconds(0.1f);
+            sr.color = originalColor;
+            yield return new WaitForSeconds(0.1f);
+            t += 0.2f;
         }
-        else if (flickerTime >= flickerDuration)
-        {
-            sr.enabled = !(sr.enabled);
-            flickerTime = 0;
-        }
+    }
+
+    void UpdateUI()
+    {
+        if (heartsUI != null)
+            heartsUI.UpdateHearts();
+
+        if (playerUI != null)
+            playerUI.UpdateUI(health, lives);
     }
 }
