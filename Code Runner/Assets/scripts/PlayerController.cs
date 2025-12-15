@@ -4,156 +4,170 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    public float moveSpeed;            // how fast the character moves
-    public float jumpHeight;           // how high the character jumps
-    private bool isFacingRight;        // check if player is facing right (not used now, kept for compatibility)
-    public KeyCode Spacebar;           // jump button (set in inspector)
-    public KeyCode L;                  // left movement button
-    public KeyCode R;                  // right movement button
-    public Transform groundCheck;      // an invisible point in space. We use it to see if the player is touching the ground
-    public float groundCheckRadius;    // value to determine how big the circle around the player's feet is
-    public LayerMask whatIsGround;     // this variable stores what is considered a ground to the character
-    private bool grounded;             // check if the character is standing on solid ground
+    [Header("Movement")]
+    public float moveSpeed = 5f;
+    public float jumpForce = 10f;
+    public KeyCode jumpKey = KeyCode.Space;
+    public KeyCode leftKey = KeyCode.A;
+    public KeyCode rightKey = KeyCode.D;
 
-    private Animator anim;
+    [Header("Ground Check")]
+    public Transform groundCheck;
+    public float groundCheckRadius = 0.2f;
+    public LayerMask whatIsGround;
+    private bool isGrounded;
+
     private Rigidbody2D rb;
+    private Animator anim;
     private SpriteRenderer sr;
 
-    // ---------- SHOOTING ----------
-    [Header("Shooting")]
-    public GameObject projectilePrefab;    // bullet prefab (drag in inspector)
-    public Transform firePoint;            // muzzle transform (child of player or UpperBody)
-    public string shootAnimTrigger = "Shoot"; // trigger name in Animator
-    public float cooldown = 0.25f;         // seconds between shots
-    public float projectileSpeed = 12f;    // bullet speed
+    // ================== SHOOTING ==================
+    [Header("Gun")]
+    public GameObject projectilePrefab;
+    public Transform firePoint;
+    public float projectileSpeed = 12f;
+    public float fireCooldown = 0.25f;
     public int damagePerShot = 1;
 
-    public int maxAmmo = 999;              // optional
-    public bool useAmmo = false;
+    [Header("Ammo")]
+    public bool useAmmo = true;
+    public int maxAmmo = 10;
+    public int currentAmmo;
 
-    private float lastShotTime = -999f;
-    private int currentAmmo;
-    // -------------------------------
+    [Header("Audio")]
+    public AudioClip shootSound;
+    private AudioSource audioSource;
 
-    // Use this for initialization
+    private float lastFireTime;
+    // ==============================================
+
     void Start()
     {
-        anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
         sr = GetComponent<SpriteRenderer>();
+        audioSource = GetComponent<AudioSource>();
 
-        // initialize ammo
-        currentAmmo = maxAmmo;
+        currentAmmo = 0;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        // Jump (uses public Spacebar key set in inspector)
-        if (Input.GetKeyDown(Spacebar) && grounded)
-        {
-            Jump();
-        }
+        HandleMovement();
+        HandleJump();
+        HandleShoot();
 
-        // Left movement
-        if (Input.GetKey(L))
-        {
-            rb.velocity = new Vector2(-moveSpeed, rb.velocity.y);
-
-            if (sr != null)
-            {
-                sr.flipX = true;
-            }
-        }
-
-        // Right movement
-        if (Input.GetKey(R))
-        {
-            rb.velocity = new Vector2(moveSpeed, rb.velocity.y);
-
-            if (sr != null)
-            {
-                sr.flipX = false;
-            }
-        }
-
-        // Shooting input: single-shot on Fire1 (mouse left / Ctrl) or X key
-        if (Input.GetButtonDown("Fire1") || Input.GetKeyDown(KeyCode.X))
-        {
-            TryShoot();
-        }
-
-        // update animator params
-        anim.SetFloat("Height", rb.velocity.y);
         anim.SetFloat("Speed", Mathf.Abs(rb.velocity.x));
-        anim.SetBool("Grounded", grounded);
+        anim.SetFloat("VerticalSpeed", rb.velocity.y);
+        anim.SetBool("Grounded", isGrounded);
     }
 
     void FixedUpdate()
     {
-        grounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, whatIsGround);
-        // this statement calculates when exactly the character is considered by Unity’s engine to be standing on the ground
+        isGrounded = Physics2D.OverlapCircle(
+            groundCheck.position,
+            groundCheckRadius,
+            whatIsGround
+        );
     }
 
-    void Jump()
+    // ================= MOVEMENT =================
+    void HandleMovement()
     {
-        rb.velocity = new Vector2(rb.velocity.x, jumpHeight);
-        // player character jumps vertically along the y-axis without disrupting horizontal walk
-    }
+        float move = 0f;
 
-    // ===================== Shooting methods =====================
-    public void TryShoot()
-    {
-        // enforce cooldown
-        if (Time.time < lastShotTime + cooldown) return;
-
-        // enforce ammo if used
-        if (useAmmo && currentAmmo <= 0) return;
-
-        lastShotTime = Time.time;
-        if (useAmmo) currentAmmo--;
-
-        // trigger animation; actual bullet will spawn from animation event FireFromAnimation()
-        if (anim != null && !string.IsNullOrEmpty(shootAnimTrigger))
+        if (Input.GetKey(leftKey))
         {
-            anim.SetTrigger(shootAnimTrigger);
+            move = -1f;
+            sr.flipX = true;
         }
-        else
+        else if (Input.GetKey(rightKey))
         {
-            // fallback: spawn immediately if no animator assigned
-            Shoot();
+            move = 1f;
+            sr.flipX = false;
+        }
+
+        rb.velocity = new Vector2(move * moveSpeed, rb.velocity.y);
+    }
+
+    void HandleJump()
+    {
+        if (Input.GetKeyDown(jumpKey) && isGrounded)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, jumpForce);
         }
     }
 
-    // This method must be called by an Animation Event placed on the shoot animation
-    // Name the Animation Event function "FireFromAnimation" (exactly) when creating the event.
-    public void FireFromAnimation()
+    // ================= SHOOTING =================
+    void HandleShoot()
     {
-        Shoot();
+        if (Input.GetButtonDown("Fire1") || Input.GetKeyDown(KeyCode.X))
+        {
+            TryShoot();
+        }
     }
 
-    void Shoot()
+    void TryShoot()
     {
-        if (projectilePrefab == null || firePoint == null)
+        if (Time.time < lastFireTime + fireCooldown)
+            return;
+
+        if (useAmmo && currentAmmo <= 0)
         {
-            Debug.LogWarning("Projectile prefab or firePoint not assigned in PlayerController.");
+            Debug.Log("No ammo!");
             return;
         }
 
-        GameObject proj = Instantiate(projectilePrefab, firePoint.position, Quaternion.identity);
+        lastFireTime = Time.time;
 
-        // determine direction from flipX: flipX true => facing left
-        float dir = (sr != null && sr.flipX) ? -1f : 1f;
+        if (useAmmo)
+            currentAmmo--;
 
-        Rigidbody2D projRb = proj.GetComponent<Rigidbody2D>();
-        if (projRb != null)
+        anim.SetTrigger("Shoot");
+
+        Fire();
+    }
+
+    void Fire()
+    {
+        if (projectilePrefab == null || firePoint == null)
+            return;
+
+        // 🔊 Play shoot sound
+        if (shootSound != null)
         {
-            projRb.velocity = new Vector2(dir * projectileSpeed, 0f);
+            if (audioSource != null)
+                audioSource.PlayOneShot(shootSound);
+            else
+                AudioSource.PlayClipAtPoint(shootSound, transform.position);
         }
 
-        // pass damage to projectile if it has Projectile script
-        Projectile p = proj.GetComponent<Projectile>();
-        if (p != null) p.SetDamage(damagePerShot);
+        GameObject bullet = Instantiate(
+            projectilePrefab,
+            firePoint.position,
+            Quaternion.identity
+        );
+
+        float direction = sr.flipX ? -1f : 1f;
+
+        Rigidbody2D bulletRb = bullet.GetComponent<Rigidbody2D>();
+        if (bulletRb != null)
+        {
+            bulletRb.velocity = new Vector2(direction * projectileSpeed, 0f);
+        }
+
+        Projectile p = bullet.GetComponent<Projectile>();
+        if (p != null)
+        {
+            p.SetDamage(damagePerShot);
+        }
     }
-    // =============================================================
+
+    // ============ AMMO PICKUP SUPPORT ============
+    public void AddAmmo(int amount)
+    {
+        currentAmmo += amount;
+        currentAmmo = Mathf.Clamp(currentAmmo, 0, maxAmmo);
+        Debug.Log("Ammo: " + currentAmmo);
+    }
 }
