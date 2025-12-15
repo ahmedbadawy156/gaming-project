@@ -1,27 +1,34 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class CameraFollow : MonoBehaviour
+public class camerafollow : MonoBehaviour
 {
-    public Transform target;
-    public float cameraspeed = 5f;
-
-    public Vector3 offset = new Vector3(0, 3, -10);
-
-    public float MinX, MaxX, MinY, MaxY;
-
-    void LateUpdate()
+    public Transform Target;
+public float Cameraspeed;
+public float minX, maxX;
+public float minY, maxY;
+    // Start is called before the first frame update
+    void Start()
     {
-        if (target == null) return;
 
-        Vector3 desiredPos = target.position + offset;
+        
+    }
 
-        float clampedX = Mathf.Clamp(desiredPos.x, MinX, MaxX);
-        float clampedY = Mathf.Clamp(desiredPos.y, MinY, MaxY);
-
-        transform.position = Vector3.Lerp(
-            transform.position,
-            new Vector3(clampedX, clampedY, offset.z),
-            cameraspeed * Time.deltaTime
-        );
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+    void FixedUpdate(){
+        if(Target != null)
+{
+Vector2 newCamPosition = Vector2.Lerp(transform.position, Target.position, Time.deltaTime * Cameraspeed);
+float ClampX = Mathf.Clamp(newCamPosition.x, minX, maxX);
+float ClampY = Mathf.Clamp(newCamPosition.y, minY, maxY);
+transform.position = new Vector3(ClampX, ClampY, -10f);
     }
 }
+
+}
+
